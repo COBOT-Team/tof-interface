@@ -55,14 +55,23 @@ int main(int argc, char** argv)
   sensor_msgs::msg::Image::SharedPtr depth_msg, ir_msg;
   rclcpp::WallRate loop_rate(30);
   ArducamFrameBuffer* frame;
-
+  size_t frame_misses = 0;
+  int exit_code = 0;
   while (rclcpp::ok()) {
     // Get the next frame from the TOF camera
     frame = tof_camera.requestFrame(200);
     if (frame == nullptr) {
       RCLCPP_ERROR(node->get_logger(), "Failed to get frame from TOF camera");
-      continue;
+      ++frame_misses;
+      if (frame_misses > 10) {
+        RCLCPP_ERROR(node->get_logger(), "Too many frame misses from TOF camera; exiting");
+        exit_code = 1;
+        break;
+      } else {
+        continue;
+      }
     }
+    frame_misses = 0;
     float* depth_ptr = (float*)frame->getData(FrameType::DEPTH_FRAME);
     float* ir_ptr = (uint8_t*)frame->getData(FrameType::AMPLITUDE_FRAME);
 
@@ -87,5 +96,5 @@ int main(int argc, char** argv)
   rclcpp::shutdown();
   tof.stop();
   tof.close();
-  return 0;
+  return exit_code;
 }
