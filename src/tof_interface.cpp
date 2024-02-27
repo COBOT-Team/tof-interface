@@ -13,18 +13,21 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <string>
 #include <vector>
 
 #include "ArducamTOFCamera.hpp"
-#include "cv_bridge/cv_bridge.hpp"
+#include "cv_bridge/cv_bridge.h"
+#include "camera_info_manager/camera_info_manager.hpp"
 #include "image_transport/image_transport.hpp"
 #include "opencv2/core/mat.hpp"
 #include "opencv2/highgui.hpp"
 
 using namespace std::chrono_literals;
 using namespace Arducam;
+using namespace camera_info_manager;
 
 int main(int argc, char** argv)
 {
@@ -36,17 +39,24 @@ int main(int argc, char** argv)
   image_transport::Publisher depth_pub = it.advertise("tof/depth", 1);
   image_transport::Publisher ir_pub = it.advertise("tof/ir", 1);
 
+  // Setup camera info manager
+  CameraInfoManager cinfo_depth(node.get(), "tof/depth");
+  CameraInfoManager cinfo_ir(node.get(), "tof/ir");
+  cinfo_depth.loadCameraInfo("package://tof_interface/camera_calibration/ost.yaml");
+  cinfo_ir.loadCameraInfo("package://tof_interface/camera_calibration/ost.yaml");
+
   // Initialize the TOF camera
   ArducamTOFCamera tof_camera;
   if (tof_camera.open(Connection::CSI)) {
     RCLCPP_ERROR(node->get_logger(), "Failed to open the TOF camera");
     return 1;
   }
-  if (tof.start()) {
+  if (tof_camera.start()) {
     RCLCPP_ERROR(node->get_logger(), "Failed to start the TOF camera");
     return 1;
   }
-  tof.setControl(CameraCtrl::RANGE, 2);  // Use 2m range; 4m doesn't work as well
+  tof_camera.setControl(CameraCtrl::RANGE, 2);  // Use 2m range; 4m doesn't work as well
+  auto tof_info = tof_camera.getCameraInfo();
   RCLCPP_INFO(node->get_logger(), "TOF camera initialized");
 
   // Main loop
@@ -73,11 +83,11 @@ int main(int argc, char** argv)
     }
     frame_misses = 0;
     float* depth_ptr = (float*)frame->getData(FrameType::DEPTH_FRAME);
-    float* ir_ptr = (uint8_t*)frame->getData(FrameType::AMPLITUDE_FRAME);
+    float* ir_ptr = (float*)frame->getData(FrameType::AMPLITUDE_FRAME);
 
     // Convert the depth and IR data to OpenCV images
-    depth_image = cv::Mat(tof_camera.getHeight(), tof_camera.getWidth(), CV_32FC1, depth_ptr);
-    ir_image = cv::Mat(tof_camera.getHeight(), tof_camera.getWidth(), CV_32FC1, ir_ptr);
+    depth_image = cv::Mat(tof_info.height, tof_info.width, CV_32FC1, depth_ptr);
+    ir_image = cv::Mat(tof_info.height, tof_info.width, CV_32FC1, ir_ptr);
 
     // Convert the OpenCV images to ROS2 messages
     depth_msg = cv_bridge::CvImage(depth_header, "32FC1", depth_image).toImageMsg();
@@ -94,7 +104,7 @@ int main(int argc, char** argv)
   }
 
   rclcpp::shutdown();
-  tof.stop();
-  tof.close();
+  tof_camera.stop();
+  tof_camera.close();
   return exit_code;
 }
