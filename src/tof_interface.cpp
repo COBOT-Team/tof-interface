@@ -75,6 +75,16 @@ public:
     timer_ = this->create_wall_timer(1ms, std::bind(&TOFInterface::image_callback, this));
   }
 
+  /**
+   * Destroy the TOFInterface object. This will stop and close the TOF camera. If the camera was not
+   * started, this will do nothing, so it is safe to call without checks.
+   */
+  ~TOFInterface()
+  {
+    tof_camera_.stop();
+    tof_camera_.close();
+  }
+
 private:
   /**
    * Callback function for the image timer. This will poll the TOF camera for a new frame, waiting
@@ -122,9 +132,10 @@ private:
     cinfo_msg_->header.frame_id = frame_id_;
     cinfo_msg_->header.stamp = timestamp;
 
-    // Publish the messages.
     depth_cinfo_pub_.publish(depth_msg_, cinfo_msg_);
     ir_cinfo_pub_.publish(ir_msg_, cinfo_msg_);
+
+    tof_camera_.releaseFrame(frame_buffer_);
   }
 
   double fps_;
@@ -153,12 +164,9 @@ private:
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-
   const rclcpp::NodeOptions options;
   auto node = std::make_shared<TOFInterface>(options);
-
   rclcpp::spin(node);
-
   rclcpp::shutdown();
   return 0;
 }
