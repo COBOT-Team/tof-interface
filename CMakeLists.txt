@@ -13,7 +13,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(camera_info_manager REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS highgui imgcodecs imgproc videoio)
@@ -22,12 +21,12 @@ ament_target_dependencies(tof_interface
   rclcpp
   std_msgs
   sensor_msgs
-  cv_bridge
   image_transport
   camera_info_manager
 )
 
 target_include_directories(tof_interface PUBLIC
+  include
   $ENV{ARDUCAM_HEARD_PATH}
   ${PCL_INCLUDE_DIRS}
   ${ament_INCLUDE_DIRS}
