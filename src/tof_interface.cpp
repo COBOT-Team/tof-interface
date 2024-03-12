@@ -31,8 +31,8 @@ TOFInterface::TOFInterface(const rclcpp::NodeOptions& node_options)
   period_ = static_cast<int>(1000.0 / fps_);
 
   // Create the image transport publishers.
-  depth_cinfo_pub_ = image_transport::create_camera_publisher(this, "tof/depth/image");
-  ir_cinfo_pub_ = image_transport::create_camera_publisher(this, "tof/ir/image");
+  depth_cinfo_pub_ = image_transport::create_camera_publisher(this, "tof/depth/image_raw");
+  ir_cinfo_pub_ = image_transport::create_camera_publisher(this, "tof/ir/image_raw");
 
   // Create the camera info manager.
   cinfo_manager_ = std::make_shared<CameraInfoManager>(this);
